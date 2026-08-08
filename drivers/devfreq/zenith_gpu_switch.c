@@ -198,7 +198,8 @@ static void gpu_governor_worker(struct work_struct *work)
 	}
 
 	if (!gpu_native_saved) {
-		strscpy(gpu_native_governor, df->governor_name,
+		strscpy(gpu_native_governor,
+			df->governor ? df->governor->name : "",
 			DEVFREQ_NAME_LEN);
 		gpu_native_saved = true;
 	}
@@ -356,7 +357,7 @@ static void gpu_governor_worker(struct work_struct *work)
 		target = gpu_native_governor;
 
 	/* Only switch if the governor actually changed */
-	if (strcmp(df->governor_name, target)) {
+	if (strcmp(df->governor ? df->governor->name : "", target)) {
 		ret = devfreq_set_governor(df, target);
 		if (ret == -EINVAL) {
 			/*
@@ -378,7 +379,8 @@ static void gpu_governor_worker(struct work_struct *work)
 					gpu_native_governor);
 				gpu_gov_warned = true;
 			}
-			if (strcmp(df->governor_name, gpu_native_governor))
+			if (strcmp(df->governor ? df->governor->name : "",
+				   gpu_native_governor))
 				devfreq_set_governor(df, gpu_native_governor);
 		} else if (ret) {
 			pr_warn("zenith_gpu_switch: %s: set governor '%s' "
@@ -386,7 +388,8 @@ static void gpu_governor_worker(struct work_struct *work)
 				ret);
 		} else {
 			pr_info("zenith_gpu_switch: %s: %s -> %s%s\n",
-				dev_name(&df->dev), df->governor_name, target,
+				dev_name(&df->dev),
+				df->governor ? df->governor->name : "", target,
 				game_active ? " (game on)" : "");
 		}
 	} else {

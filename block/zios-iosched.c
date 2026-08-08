@@ -36,6 +36,7 @@
 #include <linux/power_supply.h>
 #include <linux/thermal.h>
 #include <linux/list_sort.h>
+#include <trace/events/block.h>
 
 #include "blk.h"
 #include "blk-mq.h"
@@ -318,7 +319,7 @@ static void zios_insert_request(struct blk_mq_hw_ctx *hctx,
 		return;
 	}
 
-	blk_mq_sched_request_inserted(rq);
+	trace_block_rq_insert(rq);
 
 	is_sync = rq->cmd_flags & REQ_SYNC;
 	is_write = op_is_write(req_op(rq));
