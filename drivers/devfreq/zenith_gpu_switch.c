@@ -27,6 +27,16 @@
 #include <linux/mm.h>
 
 /*
+ * Android13-5.15 port: DEVFREQ_NAME_LEN moved out of the public
+ * devfreq.h into the private drivers/devfreq/governor.h.  Define it
+ * locally with the same value (16) so module_param_string() buffers
+ * stay sized identically to the 5.10 build.
+ */
+#ifndef DEVFREQ_NAME_LEN
+#define DEVFREQ_NAME_LEN			16
+#endif
+
+/*
  * Exported VM tunables we adjust during game mode:
  *   vm_dirty_ratio              — max dirty page % before throttling writers
  *   dirty_background_ratio      — % at which background writeback starts
