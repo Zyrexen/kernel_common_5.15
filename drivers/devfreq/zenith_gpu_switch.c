@@ -16,6 +16,12 @@
 
 #include <linux/module.h>
 #include <linux/devfreq.h>
+/*
+ * Android13-5.15 port: struct devfreq_governor (and DEVFREQ_NAME_LEN)
+ * moved out of the public devfreq.h into the private governor.h.
+ * Include it directly - the driver builds inside drivers/devfreq/.
+ */
+#include "governor.h"
 #include <linux/workqueue.h>
 #include <linux/device.h>
 #include <linux/cpufreq_zenith.h>
@@ -26,15 +32,6 @@
 #include <linux/dcache.h>
 #include <linux/mm.h>
 
-/*
- * Android13-5.15 port: DEVFREQ_NAME_LEN moved out of the public
- * devfreq.h into the private drivers/devfreq/governor.h.  Define it
- * locally with the same value (16) so module_param_string() buffers
- * stay sized identically to the 5.10 build.
- */
-#ifndef DEVFREQ_NAME_LEN
-#define DEVFREQ_NAME_LEN			16
-#endif
 
 /*
  * Exported VM tunables we adjust during game mode:
