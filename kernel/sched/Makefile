@@ -38,3 +38,6 @@ obj-$(CONFIG_CPU_ISOLATION) += isolation.o
 obj-$(CONFIG_PSI) += psi.o
 obj-$(CONFIG_SCHED_CORE) += core_sched.o
 obj-$(CONFIG_ANDROID_VENDOR_HOOKS) += vendor_hooks.o
+obj-$(CONFIG_SELENE) += selene.o selene_gamelist.o
+obj-$(CONFIG_LUCID) += lucid.o
+obj-$(CONFIG_KOAKUMA) += koakuma.o
