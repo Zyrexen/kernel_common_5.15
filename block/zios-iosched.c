@@ -36,6 +36,7 @@
 #include <linux/power_supply.h>
 #include <linux/thermal.h>
 #include <linux/list_sort.h>
+#include <linux/backing-dev.h>
 #include <trace/events/block.h>
 
 #include "blk.h"
