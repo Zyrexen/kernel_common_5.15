@@ -209,8 +209,8 @@ out:
 
 /* ---------- LBA sort for write batching ---------- */
 
-static int zios_cmp_write_lba(void *priv, struct list_head *a,
-			      struct list_head *b)
+static int zios_cmp_write_lba(void *priv, const struct list_head *a,
+			      const struct list_head *b)
 {
 	struct request *rq_a = list_entry(a, struct request, queuelist);
 	struct request *rq_b = list_entry(b, struct request, queuelist);
@@ -304,6 +304,7 @@ static void zios_insert_request(struct blk_mq_hw_ctx *hctx,
 	struct zios_rq_data *rd = get_rq_data(rq);
 	bool is_sync, is_write;
 	bool is_top_app;
+	LIST_HEAD(free);
 
 	lockdep_assert_held(&zd->lock);
 
@@ -312,8 +313,10 @@ static void zios_insert_request(struct blk_mq_hw_ctx *hctx,
 	if (!rd)
 		return;
 
-	if (blk_mq_sched_try_insert_merge(q, rq))
+	if (blk_mq_sched_try_insert_merge(q, rq, &free)) {
+		blk_mq_free_requests(&free);
 		return;
+	}
 
 	blk_mq_sched_request_inserted(rq);
 
@@ -866,23 +869,23 @@ static void zios_analyze_workload(struct zios_data *zd)
 		zd->read_coalesce_limit = 24;
 		zd->normal_params.read_batch_max = 32;
 		/* Increase read-ahead for sequential throughput */
-		zd->queue->backing_dev_info->ra_pages = 256 >> (PAGE_SHIFT - 10);
+		zd->queue->disk->bdi->ra_pages = 256 >> (PAGE_SHIFT - 10);
 		zios_debug("-> SEQUENTIAL (coalesce=%u, rbatch=%u, ra=%luKB)\n",
 			   zd->read_coalesce_limit,
 			   zd->normal_params.read_batch_max,
-			   zd->queue->backing_dev_info->ra_pages << (PAGE_SHIFT - 10));
+			   zd->queue->disk->bdi->ra_pages << (PAGE_SHIFT - 10));
 	} else if (rand_ratio > 60 && read_ops > write_ops) {
 		zd->workload = ZIOS_WORKLOAD_RANDOM;
 		zd->read_coalesce_limit = 4;
 		zd->normal_params.read_batch_max = 8;
 		zd->normal_params.write_starve_max = 5;
 		/* Decrease read-ahead for random I/O (save memory/cache) */
-		zd->queue->backing_dev_info->ra_pages = 32 >> (PAGE_SHIFT - 10);
+		zd->queue->disk->bdi->ra_pages = 32 >> (PAGE_SHIFT - 10);
 		zios_debug("-> RANDOM (coalesce=%u, rbatch=%u, starve=%u, ra=%luKB)\n",
 			   zd->read_coalesce_limit,
 			   zd->normal_params.read_batch_max,
 			   zd->normal_params.write_starve_max,
-			   zd->queue->backing_dev_info->ra_pages << (PAGE_SHIFT - 10));
+			   zd->queue->disk->bdi->ra_pages << (PAGE_SHIFT - 10));
 	} else if (write_ratio > 55 && total_write_sz > 0) {
 		zd->workload = ZIOS_WORKLOAD_WRITE_HEAVY;
 		zd->normal_params.write_batch_max = 32;
@@ -900,9 +903,9 @@ static void zios_analyze_workload(struct zios_data *zd)
 			zd->normal_params.write_starve_max = 3;
 			zd->max_write_pending = 64;
 			/* Restore default read-ahead */
-			zd->queue->backing_dev_info->ra_pages = 128 >> (PAGE_SHIFT - 10);
+			zd->queue->disk->bdi->ra_pages = 128 >> (PAGE_SHIFT - 10);
 			zios_debug("-> BALANCED (restored defaults, ra=%luKB)\n",
-				   zd->queue->backing_dev_info->ra_pages << (PAGE_SHIFT - 10));
+				   zd->queue->disk->bdi->ra_pages << (PAGE_SHIFT - 10));
 		}
 		zd->workload = ZIOS_WORKLOAD_BALANCED;
 	}
@@ -1296,11 +1299,11 @@ static ssize_t zios_priority_inheritance_store(struct elevator_queue *e,
 	return count;
 }
 
-/* Read-ahead KB (shows/sets the backing_dev_info ra_pages, rounded) */
+/* Read-ahead KB (shows/sets the queue disk bdi ra_pages, rounded) */
 static ssize_t zios_read_ahead_kb_show(struct elevator_queue *e, char *page)
 {
 	struct zios_data *zd = e->elevator_data;
-	unsigned long ra_kb = zd->queue->backing_dev_info->ra_pages <<
+	unsigned long ra_kb = zd->queue->disk->bdi->ra_pages <<
 				(PAGE_SHIFT - 10);
 	return sysfs_emit(page, "%lu\n", ra_kb);
 }
@@ -1316,7 +1319,7 @@ static ssize_t zios_read_ahead_kb_store(struct elevator_queue *e,
 	if (ret || ra_kb > 4096)
 		return -EINVAL;
 
-	zd->queue->backing_dev_info->ra_pages = ra_kb >> (PAGE_SHIFT - 10);
+	zd->queue->disk->bdi->ra_pages = ra_kb >> (PAGE_SHIFT - 10);
 	return count;
 }
 
