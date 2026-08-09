@@ -142,11 +142,11 @@ static bool lucid_is_killable(struct task_struct *task)
 /* Game start / stop                                                   */
 /* ------------------------------------------------------------------ */
 
-static void lucid_on_game_start(const char *game_name)
+static noinline void lucid_on_game_start(const char *game_name)
 {
 	struct task_struct *p;
 	pid_t pids[LUCID_PID_CACHE];
-	int npids = 0, cache_idx = 0;
+	int npids = 0, cache_idx = 0, i;
 
 	if (!lucid_enabled)
 		return;
@@ -172,7 +172,7 @@ static void lucid_on_game_start(const char *game_name)
 	rcu_read_unlock();
 
 	/* Phase 2: check + adjust OOM for each PID (can sleep) */
-	for (int i = 0; i < npids && cache_idx < LUCID_PID_CACHE; i++) {
+	for (i = 0; i < npids && cache_idx < LUCID_PID_CACHE; i++) {
 		struct pid *pid_struct = find_get_pid(pids[i]);
 		struct task_struct *task;
 		bool is_game = false;
@@ -238,7 +238,7 @@ static void lucid_on_game_start(const char *game_name)
 		 cache_idx);
 }
 
-static void lucid_on_game_stop(void)
+static noinline void lucid_on_game_stop(void)
 {
 	int i, count;
 
@@ -402,8 +402,6 @@ static ssize_t kill_list_add_store(struct kobject *kobj,
 				   struct kobj_attribute *attr,
 				   const char *buf, size_t count)
 {
-	unsigned int len;
-
 	while (count > 0 && (buf[count - 1] == '\n' || buf[count - 1] == ' '))
 		count--;
 
@@ -433,7 +431,6 @@ static ssize_t kill_list_del_store(struct kobject *kobj,
 				   struct kobj_attribute *attr,
 				   const char *buf, size_t count)
 {
-	unsigned int len;
 	int i;
 
 	while (count > 0 && (buf[count - 1] == '\n' || buf[count - 1] == ' '))

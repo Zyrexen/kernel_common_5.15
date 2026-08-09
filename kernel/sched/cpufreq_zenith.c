@@ -6649,7 +6649,7 @@ static unsigned long zenith_get_util(struct zenith_cpu *z_cpu)
 		util = cpu_util_cfs(rq);
 	}
 
-	util_out = schedutil_cpu_util(z_cpu->cpu, util, max, FREQUENCY_UTIL, NULL);
+	util_out = effective_cpu_util(z_cpu->cpu, util, max, FREQUENCY_UTIL, NULL);
 
 	/* Thermal-pressure-aware util derate.  When the SoC thermal
 	 * framework has eaten a meaningful fraction of capacity, scale
@@ -10000,7 +10000,7 @@ brutal_entry_deferred:
 
 	{
 		unsigned long _vh_next_freq = 0;
-		trace_android_vh_map_util_freq(util, freq, max_cap,
+		trace_android_vh_map_util_freq_new(util, freq, max_cap,
 					       &_vh_next_freq, policy,
 					       &z_policy->need_freq_update);
 		if (_vh_next_freq)
