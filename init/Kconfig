@@ -2611,6 +2611,22 @@ config KAGUYA_CMDLINE_SPOOF
 	  when /proc/cmdline and /proc/bootconfig are read, matching the
 	  values kaguya enforces via resetprop.  Keeps the property and
 	  raw-boot-text layers consistent so root-detection checks cannot
-	  spot a prop-vs-cmdline mismatch.
+	  spot a  prop-vs-cmdline mismatch.
+
+config ZENITH_ALLOWLIST
+	bool "Zenith device boot allowlist"
+	depends on SMP
+	default y
+	help
+	  Restrict boot to specific device(s) via ro.product.board match.
+	  Useful for releasing device-specific kernel builds.
+
+	  If unsure, say N.
+
+config ZENITH_ALLOWLIST_DEVICE_STRING
+	string "Device identifier for boot allowlist"
+	depends on ZENITH_ALLOWLIST
+	help
+	  ro.product.board value that the allowlist checks against.
 
 source "init/Kconfig.gki"
