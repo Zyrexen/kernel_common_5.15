@@ -130,7 +130,10 @@ CONFIG_ZSMALLOC=m
 # CONFIG_ZONE_DMA is not set
 CONFIG_ANON_VMA_NAME=y
 CONFIG_LRU_GEN=y
-CONFIG_LRU_GEN_ENABLED=y
+# MGLRU off by default: the 5.15 backport panics in clear_mm_walk()/kfree under
+# direct reclaim (allocator + boot pressure). Re-enable at runtime with:
+#   echo 1 > /sys/kernel/mm/lru_gen/enabled
+# CONFIG_LRU_GEN_ENABLED is not set
 CONFIG_DAMON=y
 CONFIG_DAMON_PADDR=y
 CONFIG_DAMON_RECLAIM=y
