@@ -149,9 +149,13 @@
 
 /* Constants & Defaults */
 /* Permille of SCHED_CAPACITY_SCALE at which iowait boost starts.
- * 125 == SCHED_CAPACITY_SCALE / 8, preserving the historical default.
+ * 100 == SCHED_CAPACITY_SCALE, i.e. the boost saturates at full
+ * capacity instead of overshooting past it.  The historical 125
+ * let sustained iowait (app installs, syncs) push util past
+ * capacity and pin high freq for the whole episode; capping at
+ * 100 keeps the boost strong but bounds the battery cost.
  */
-#define ZENITH_DEFAULT_IOWAIT_BOOST_MIN		125
+#define ZENITH_DEFAULT_IOWAIT_BOOST_MIN		100
 #define ZENITH_DEFAULT_IOWAIT_STACK_PCT		50	/* 0 = legacy max(util, boost) */
 
 /* iowait_backoff_after_ms (default 0, off):
@@ -177,9 +181,9 @@
  * climbs to SCHED_CAPACITY_SCALE without an upper time bound).
  */
 #define ZENITH_DEFAULT_IOWAIT_BACKOFF_AFTER_MS	0
-#define ZENITH_DEFAULT_UP_THRESHOLD		70
+#define ZENITH_DEFAULT_UP_THRESHOLD		80
 #define ZENITH_DEFAULT_UP_THRESHOLD_HISPEED	0	/* disabled */
-#define ZENITH_DEFAULT_DOWN_THRESHOLD		60
+#define ZENITH_DEFAULT_DOWN_THRESHOLD		55
 #define ZENITH_DEFAULT_HISPEED_FREQ		0	/* disabled */
 /* Defensive sysfs upper bound for hispeed_freq (kHz).  50 GHz is well past
  * any real CPU; rejects UINT_MAX-style garbage at the sysfs layer.  Values
@@ -187,8 +191,8 @@
  * policy->cur / policy->max.
  */
 #define ZENITH_HISPEED_FREQ_MAX			50000000U
-#define ZENITH_DEFAULT_HISPEED_FREQ_PCT		55	/* fallback when hispeed_freq=0 */
-#define ZENITH_DEFAULT_HISPEED_LOAD		65
+#define ZENITH_DEFAULT_HISPEED_FREQ_PCT		45	/* fallback when hispeed_freq=0 */
+#define ZENITH_DEFAULT_HISPEED_LOAD		75
 #define ZENITH_DEFAULT_HISPEED_HYST_PCT		10	/* exit hysteresis margin */
 
 /* hispeed_entry_streak (default 0, off):
@@ -2117,7 +2121,7 @@ static unsigned int zenith_calibrate_enable __read_mostly = 1;
  */
 #define ZENITH_DEFAULT_SCREEN_ON_BIAS_PCT	50
 #define ZENITH_DEFAULT_IO_IS_BUSY		1
-#define ZENITH_DEFAULT_INPUT_BOOST_MS		80
+#define ZENITH_DEFAULT_INPUT_BOOST_MS		60
 #define ZENITH_DEFAULT_INPUT_BOOST_DECAY_MS	30
 
 /* input_boost_touchdown_extra_ms (default 50, [Stage 4 / Patch C]):
@@ -2238,7 +2242,7 @@ static unsigned int zenith_calibrate_enable __read_mostly = 1;
  * downstream caps (uclamp_max, audio_cap, em_cap, light_cap,
  * thermal_state) all apply on top.
  */
-#define ZENITH_DEFAULT_INPUT_BOOST_CAP_PCT	0
+#define ZENITH_DEFAULT_INPUT_BOOST_CAP_PCT	80	/* cap tap-boost at 80% of max */
 #define ZENITH_DEFAULT_EFFICIENT_FREQ		0
 
 /* eff_bin_hyst_pct (default 0, off):
@@ -2290,11 +2294,11 @@ static unsigned int zenith_calibrate_enable __read_mostly = 1;
  * tune what the observer considers "saturated" and the saturation /
  * input-event cutoffs that select performance vs battery.
  */
-#define ZENITH_DEFAULT_AT_SAT_LOAD_PCT		70
+#define ZENITH_DEFAULT_AT_SAT_LOAD_PCT		80
 #define ZENITH_DEFAULT_AT_HI_SAT_PCT		60
-#define ZENITH_DEFAULT_AT_LO_SAT_PCT		10
+#define ZENITH_DEFAULT_AT_LO_SAT_PCT		25
 #define ZENITH_DEFAULT_AT_HI_EVENTS_X2		4
-#define ZENITH_DEFAULT_AT_LO_EVENTS_X2		1
+#define ZENITH_DEFAULT_AT_LO_EVENTS_X2		2
 
 /* auto_tune_scenario (default 0, off):
  *
@@ -15829,8 +15833,8 @@ static void zenith_auto_tune_work(struct work_struct *w)
 
 	sat_pct = total ? (saturated * 100 / total) : 0;
 	/* events per 2s, i.e. half-events/s * 2, kept integer-friendly:
-	 * ZENITH_AUTO_TUNE_HI_EVENTS_X2=4 corresponds to > 2.0/s, and
-	 * ZENITH_AUTO_TUNE_LO_EVENTS_X2=1 corresponds to < 0.5/s, over
+ * ZENITH_AUTO_TUNE_HI_EVENTS_X2=4 corresponds to > 2.0/s, and
+ * ZENITH_AUTO_TUNE_LO_EVENTS_X2=2 corresponds to < 1.0/s, over
 	 * the ZENITH_AUTO_TUNE_PERIOD_MS window (10s by default).
 	 */
 	events_rate_x2 = (unsigned int)((events_delta * 2000) /
