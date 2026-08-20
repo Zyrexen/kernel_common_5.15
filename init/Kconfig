@@ -2424,7 +2424,6 @@ config ARCH_HAS_SYNC_CORE_BEFORE_USERMODE
 config ARCH_HAS_SYSCALL_WRAPPER
 	def_bool n
 
-	  If unsure, say Y.
 
 config ZENITH_ALLOWLIST
 	bool "Zenith device boot allowlist"
