@@ -8349,18 +8349,6 @@ static void zenith_policy_game_auto_tick(struct zenith_policy *z_policy)
 /*
  * Kasumi (drivers/thermal/thermal_helpers.c) intercepts
  * thermal_zone_get_temp() and dampens the reported temperature.
-
-#if IS_ENABLED(CONFIG_VINDICATOR_EQUILIBRIUM)
-extern void equilibrium_apply_profile(unsigned int profile);
-#else
-static inline void equilibrium_apply_profile(unsigned int profile) { }
-#endif
-#if IS_ENABLED(CONFIG_VINDICATOR_NOCTURNE)
-extern void nocturne_apply_profile(unsigned int profile);
-#else
-static inline void nocturne_apply_profile(unsigned int profile) { }
-#endif
-
 /* Patch K: live skin-temp readout for the game_perf_burst guardrail.
  * Returns millidegrees C.
  *
@@ -15347,14 +15335,6 @@ static void zenith_apply_profile(struct zenith_tunables *t, unsigned int prof)
 	 */
 	zenith_log_profile_applied(t, prof);
 
-	/* Propagate the profile to the thermal stack so Kasumi's
-	 * dampening window and Iyashi's performance floor track
-	 * the governor's intent.  BALANCED bakes the compile-time
-	 * defaults in both subsystems so this is a no-op on the
-	 * cold-boot path.
-	 */
-	equilibrium_apply_profile(prof);
-	nocturne_apply_profile(prof);
 }
 
 /* Patch B-AUTO-4: auto-selector classifier (priority cascade).
@@ -23606,7 +23586,7 @@ static int __init zenith_gov_init(void)
 	 *
 	 */
 	#ifdef CONFIG_ZENITH_DEBUG_MSG
-	pr_info("Zenith: v4 hybrid cpufreq governor initialized (Zenith/Hikari/Kasumi/Iyashi)\n");
+	pr_info("Zenith: v5 hybrid cpufreq governor initialized\n");
 	#endif /* CONFIG_ZENITH_DEBUG_MSG */
 
 	/* Allocate the initial RCU comm tables from the in-tree default
