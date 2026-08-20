@@ -180,7 +180,6 @@ static const struct host1x_bo_ops tegra_bo_ops = {
 static int tegra_bo_iommu_map(struct tegra_drm *tegra, struct tegra_bo *bo)
 {
 	int prot = IOMMU_READ | IOMMU_WRITE;
-	ssize_t size;
 	int err;
 
 	if (bo->mm)
@@ -202,14 +201,12 @@ static int tegra_bo_iommu_map(struct tegra_drm *tegra, struct tegra_bo *bo)
 
 	bo->iova = bo->mm->start;
 
-	size = iommu_map_sgtable(tegra->domain, bo->iova, bo->sgt, prot);
-	if (size < 0) {
+	bo->size = iommu_map_sgtable(tegra->domain, bo->iova, bo->sgt, prot);
+	if (!bo->size) {
 		dev_err(tegra->drm->dev, "failed to map buffer\n");
-		err = size;
+		err = -ENOMEM;
 		goto remove;
 	}
-
-	bo->size = size;
 
 	mutex_unlock(&tegra->mm_lock);
 

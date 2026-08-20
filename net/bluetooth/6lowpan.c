@@ -775,9 +775,19 @@ static void chan_close_cb(struct l2cap_chan *chan)
 	struct lowpan_btle_dev *dev = NULL;
 	struct lowpan_peer *peer;
 	int err = -ENOENT;
-	bool last = false;
+	bool last = false, remove = true;
 
 	BT_DBG("chan %p conn %p", chan, chan->conn);
+
+	if (chan->conn && chan->conn->hcon) {
+		if (!is_bt_6lowpan(chan->conn->hcon))
+			return;
+
+		/* If conn is set, then the netdev is also there and we should
+		 * not remove it.
+		 */
+		remove = false;
+	}
 
 	spin_lock(&devices_lock);
 
@@ -805,8 +815,10 @@ static void chan_close_cb(struct l2cap_chan *chan)
 
 		ifdown(dev->netdev);
 
-		INIT_WORK(&entry->delete_netdev, delete_netdev);
-		schedule_work(&entry->delete_netdev);
+		if (remove) {
+			INIT_WORK(&entry->delete_netdev, delete_netdev);
+			schedule_work(&entry->delete_netdev);
+		}
 	} else {
 		spin_unlock(&devices_lock);
 	}

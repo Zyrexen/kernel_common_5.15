@@ -278,15 +278,9 @@ static int tls_do_decryption(struct sock *sk,
 		BUILD_BUG_ON_INVALID(atomic_read(&ctx->decrypt_pending) < 1);
 		atomic_inc(&ctx->decrypt_pending);
 	} else {
-		DECLARE_CRYPTO_WAIT(wait);
-
 		aead_request_set_callback(aead_req,
 					  CRYPTO_TFM_REQ_MAY_BACKLOG,
-					  crypto_req_done, &wait);
-		ret = crypto_aead_decrypt(aead_req);
-		if (ret == -EINPROGRESS || ret == -EBUSY)
-			ret = crypto_wait_req(ret, &wait);
-		return ret;
+					  crypto_req_done, &ctx->async_wait);
 	}
 
 	ret = crypto_aead_decrypt(aead_req);
@@ -295,7 +289,10 @@ static int tls_do_decryption(struct sock *sk,
 		ret = ret ?: -EINPROGRESS;
 	}
 	if (ret == -EINPROGRESS) {
-		return 0;
+		if (darg->async)
+			return 0;
+
+		ret = crypto_wait_req(ret, &ctx->async_wait);
 	} else if (darg->async) {
 		atomic_dec(&ctx->decrypt_pending);
 	}
@@ -455,7 +452,7 @@ int tls_tx_records(struct sock *sk, int flags)
 	}
 
 tx_err:
-	if (rc < 0 && rc != -EAGAIN && rc != -EINTR && rc != -ERESTARTSYS)
+	if (rc < 0 && rc != -EAGAIN)
 		tls_err_abort(sk, rc);
 
 	return rc;
@@ -610,7 +607,6 @@ static int tls_split_open_record(struct sock *sk, struct tls_rec *from,
 	struct scatterlist *sge, *osge, *nsge;
 	u32 orig_size = msg_opl->sg.size;
 	struct scatterlist tmp = { };
-	u32 tmp_i = 0;
 	struct sk_msg *msg_npl;
 	struct tls_rec *new;
 	int ret;
@@ -632,7 +628,6 @@ static int tls_split_open_record(struct sock *sk, struct tls_rec *from,
 		if (sge->length > apply) {
 			u32 len = sge->length - apply;
 
-			tmp_i = i;
 			get_page(sg_page(sge));
 			sg_set_page(&tmp, sg_page(sge), len,
 				    sge->offset + apply);
@@ -664,7 +659,6 @@ static int tls_split_open_record(struct sock *sk, struct tls_rec *from,
 	nsge = sk_msg_elem(msg_npl, j);
 	if (tmp.length) {
 		memcpy(nsge, &tmp, sizeof(*nsge));
-		sk_msg_sg_copy_assign(msg_npl, j, msg_opl, tmp_i);
 		sk_msg_iter_var_next(j);
 		nsge = sk_msg_elem(msg_npl, j);
 	}
@@ -672,7 +666,6 @@ static int tls_split_open_record(struct sock *sk, struct tls_rec *from,
 	osge = sk_msg_elem(msg_opl, i);
 	while (osge->length) {
 		memcpy(nsge, osge, sizeof(*nsge));
-		sk_msg_sg_copy_assign(msg_npl, j, msg_opl, i);
 		sg_unmark_end(nsge);
 		sk_msg_iter_var_next(i);
 		sk_msg_iter_var_next(j);

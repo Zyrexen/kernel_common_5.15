@@ -48,7 +48,7 @@ void ret_from_fork(void) asm("ret_from_fork");
 
 void __ret_from_fork(struct task_struct *prev, struct pt_regs *regs)
 {
-	int (*func)(void *arg);
+	void (*func)(void *arg);
 
 	schedule_tail(prev);
 

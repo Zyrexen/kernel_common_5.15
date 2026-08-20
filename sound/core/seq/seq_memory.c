@@ -288,7 +288,6 @@ int snd_seq_event_dup(struct snd_seq_pool *pool, struct snd_seq_event *event,
 	int ncells, err;
 	unsigned int extlen;
 	struct snd_seq_event_cell *cell;
-	int size;
 
 	*cellp = NULL;
 
@@ -306,12 +305,7 @@ int snd_seq_event_dup(struct snd_seq_pool *pool, struct snd_seq_event *event,
 		return err;
 
 	/* copy the event */
-	size = snd_seq_event_packet_size(event);
-	memcpy(&cell->ump, event, size);
-#if IS_ENABLED(CONFIG_SND_SEQ_UMP)
-	if (size < sizeof(cell->ump))
-		cell->ump.raw.extra = 0;
-#endif
+	cell->event = *event;
 
 	/* decompose */
 	if (snd_seq_ev_is_variable(event)) {
@@ -329,7 +323,7 @@ int snd_seq_event_dup(struct snd_seq_pool *pool, struct snd_seq_event *event,
 		tail = NULL;
 
 		while (ncells-- > 0) {
-			size = sizeof(struct snd_seq_event);
+			int size = sizeof(struct snd_seq_event);
 			if (len < size)
 				size = len;
 			err = snd_seq_cell_alloc(pool, &tmp, nonblock, file,

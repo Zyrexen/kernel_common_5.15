@@ -335,7 +335,7 @@ static int ntfs_rename(struct user_namespace *mnt_userns, struct inode *dir,
 			ntfs_sync_inode(dir);
 
 		if (IS_DIRSYNC(new_dir))
-			ntfs_sync_inode(new_dir);
+			ntfs_sync_inode(inode);
 	}
 
 	ni_unlock(ni);
