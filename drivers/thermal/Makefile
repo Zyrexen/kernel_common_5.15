@@ -8,7 +8,6 @@ thermal_sys-y			+= thermal_core.o thermal_sysfs.o \
 					thermal_helpers.o
 
 # Kasumi thermal dampening (XTENSEI)
-thermal_sys-$(CONFIG_KASUMI)	+= kasumi.o
 # Iyashi performance-floor clamp (XTENSEI)
 thermal_sys-$(CONFIG_IYASHI)		+= iyashi.o
 # Charger guard -- auto-suppress Kasumi/Iyashi while a charger is online (XTENSEI)
