@@ -65,7 +65,6 @@
 #include <linux/math64.h>
 #include <linux/sysfs.h>
 #include <linux/hikari.h>
-#include <linux/selene.h>
 #include <linux/notifier.h>
 #include <linux/power_supply.h>
 #include <linux/time.h>
@@ -23687,30 +23686,6 @@ static struct notifier_block zenith_hikari_nb = {
 	.notifier_call = zenith_hikari_freq_hint_cb,
 };
 
-/* ------------------------------------------------------------ */
-/* Selene game detection integration                            */
-/* ------------------------------------------------------------ */
-static int zenith_selene_nb_fn(struct notifier_block *nb,
-                               unsigned long event, void *data)
-{
-	switch (event) {
-	case SELENE_EVENT_GAME_START:
-		WRITE_ONCE(zenith_game_auto_active_until_ns,
-			   ktime_get_ns() + 30ULL * NSEC_PER_SEC);
-		atomic_notifier_call_chain(&zenith_game_mode_nh, 1, NULL);
-		break;
-	case SELENE_EVENT_GAME_STOP:
-		WRITE_ONCE(zenith_game_auto_active_until_ns, 0);
-		atomic_notifier_call_chain(&zenith_game_mode_nh, 0, NULL);
-		break;
-	}
-	return NOTIFY_OK;
-}
-
-static struct notifier_block zenith_selene_nb = {
-	.notifier_call = zenith_selene_nb_fn,
-};
-
 /*
  * Walk the policy's CPUs, take the max Hikari floor across them,
  * and clamp to the policy's [min..max] range.  Returns 0 if no
@@ -24039,22 +24014,6 @@ static int __init zenith_gov_init(void)
 				hret);
 		else
 			pr_info("Zenith: subscribed to hikari wake-demand chain\n");
-	}
-
-	/*
-	 * Subscribe to Selene\'s game detection chain.  On game start
-	 * we set a 30-second game-mode auto latch so zenith\'s hot-path
-	 * overlays (higher freq targets, lower rate limits) activate.
-	 * On game stop the latch is cleared.
-	 */
-	{
-		int sret = selene_register_notifier(&zenith_selene_nb);
-
-		if (sret)
-			pr_warn("Zenith: selene notifier register failed (%d), continuing without game detection\n",
-				sret);
-		else
-			pr_info("Zenith: subscribed to selene game detection chain\n");
 	}
 
 	return 0;
