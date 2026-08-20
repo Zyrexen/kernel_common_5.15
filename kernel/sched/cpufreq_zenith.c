@@ -8349,11 +8349,6 @@ static void zenith_policy_game_auto_tick(struct zenith_policy *z_policy)
 /*
  * Kasumi (drivers/thermal/thermal_helpers.c) intercepts
  * thermal_zone_get_temp() and dampens the reported temperature.
-#if IS_ENABLED(CONFIG_IYASHI)
-extern void iyashi_apply_profile(unsigned int profile);
-#else
-static inline void iyashi_apply_profile(unsigned int profile) { }
-#endif
 
 #if IS_ENABLED(CONFIG_VINDICATOR_EQUILIBRIUM)
 extern void equilibrium_apply_profile(unsigned int profile);
@@ -15358,7 +15353,6 @@ static void zenith_apply_profile(struct zenith_tunables *t, unsigned int prof)
 	 * defaults in both subsystems so this is a no-op on the
 	 * cold-boot path.
 	 */
-	iyashi_apply_profile(prof);
 	equilibrium_apply_profile(prof);
 	nocturne_apply_profile(prof);
 }
