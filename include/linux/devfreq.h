@@ -227,9 +227,6 @@ struct devfreq *devm_devfreq_add_device(struct device *dev,
 				const char *governor_name,
 				void *data);
 void devm_devfreq_remove_device(struct device *dev, struct devfreq *devfreq);
-int devfreq_set_governor(struct devfreq *devfreq, const char *name);
-struct devfreq *devfreq_get_devfreq_by_name(const char *name);
-struct devfreq *devfreq_find_gpu_devfreq(void);
 
 /* Supposed to be called by PM callbacks */
 int devfreq_suspend_device(struct devfreq *devfreq);
@@ -428,22 +425,6 @@ static inline struct devfreq *devfreq_get_devfreq_by_node(struct device_node *no
 
 static inline struct devfreq *devfreq_get_devfreq_by_phandle(struct device *dev,
 					const char *phandle_name, int index)
-{
-	return ERR_PTR(-ENODEV);
-}
-
-static inline int devfreq_set_governor(struct devfreq *devfreq,
-				       const char *name)
-{
-	return -ENOSYS;
-}
-
-static inline struct devfreq *devfreq_get_devfreq_by_name(const char *name)
-{
-	return ERR_PTR(-ENODEV);
-}
-
-static inline struct devfreq *devfreq_find_gpu_devfreq(void)
 {
 	return ERR_PTR(-ENODEV);
 }

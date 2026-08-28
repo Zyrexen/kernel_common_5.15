@@ -911,7 +911,7 @@ unsigned int OnAuthClient(struct adapter *padapter, union recv_frame *precv_fram
 			p = rtw_get_ie(pframe + WLAN_HDR_A3_LEN + _AUTH_IE_OFFSET_, WLAN_EID_CHALLENGE, (int *)&len,
 				pkt_len - WLAN_HDR_A3_LEN - _AUTH_IE_OFFSET_);
 
-			if (!p || len != WLAN_AUTH_CHALLENGE_LEN)
+			if (!p)
 				goto authclnt_fail;
 
 			memcpy((void *)(pmlmeinfo->chg_txt), (void *)(p + 2), len);
@@ -2989,11 +2989,7 @@ void issue_assocreq(struct adapter *padapter)
 
 	/* vendor specific IE, such as WPA, WMM, WPS */
 	for (i = sizeof(struct ndis_802_11_fix_ie); i < pmlmeinfo->network.ie_length;) {
-		if (i + sizeof(*pIE) > pmlmeinfo->network.ie_length)
-			break;
 		pIE = (struct ndis_80211_var_ie *)(pmlmeinfo->network.ies + i);
-		if (i + sizeof(*pIE) + pIE->length > pmlmeinfo->network.ie_length)
-			break;
 
 		switch (pIE->element_id) {
 		case WLAN_EID_VENDOR_SPECIFIC:
@@ -5424,11 +5420,7 @@ u8 join_cmd_hdl(struct adapter *padapter, u8 *pbuf)
 
 	/* sizeof(struct ndis_802_11_fix_ie) */
 	for (i = _FIXED_IE_LENGTH_; i < pnetwork->ie_length;) {
-		if (i + sizeof(*pIE) > pnetwork->ie_length)
-			break;
 		pIE = (struct ndis_80211_var_ie *)(pnetwork->ies + i);
-		if (i + sizeof(*pIE) + pIE->length > pnetwork->ie_length)
-			break;
 
 		switch (pIE->element_id) {
 		case WLAN_EID_VENDOR_SPECIFIC:/* Get WMM IE. */

@@ -106,7 +106,6 @@ struct ksmbd_conn {
 	bool				signing_negotiated;
 	__le16				signing_algorithm;
 	bool				binding;
-	atomic_t			refcnt;
 };
 
 struct ksmbd_conn_ops {
@@ -149,8 +148,6 @@ bool ksmbd_conn_alive(struct ksmbd_conn *conn);
 void ksmbd_conn_wait_idle(struct ksmbd_conn *conn, u64 sess_id);
 struct ksmbd_conn *ksmbd_conn_alloc(void);
 void ksmbd_conn_free(struct ksmbd_conn *conn);
-struct ksmbd_conn *ksmbd_conn_get(struct ksmbd_conn *conn);
-void ksmbd_conn_put(struct ksmbd_conn *conn);
 bool ksmbd_conn_lookup_dialect(struct ksmbd_conn *c);
 int ksmbd_conn_write(struct ksmbd_work *work);
 int ksmbd_conn_rdma_read(struct ksmbd_conn *conn,
@@ -176,11 +173,6 @@ void ksmbd_conn_unlock(struct ksmbd_conn *conn);
  * This is a hack. We will move status to a proper place once we land
  * a multi-sessions support.
  */
-static inline bool ksmbd_conn_new(struct ksmbd_conn *conn)
-{
-	return READ_ONCE(conn->status) == KSMBD_SESS_NEW;
-}
-
 static inline bool ksmbd_conn_good(struct ksmbd_conn *conn)
 {
 	return READ_ONCE(conn->status) == KSMBD_SESS_GOOD;

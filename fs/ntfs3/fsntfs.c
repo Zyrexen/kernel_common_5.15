@@ -830,7 +830,7 @@ int ntfs_refresh_zone(struct ntfs_sb_info *sbi)
 /*
  * ntfs_update_mftmirr - Update $MFTMirr data.
  */
-void ntfs_update_mftmirr(struct ntfs_sb_info *sbi, int wait)
+int ntfs_update_mftmirr(struct ntfs_sb_info *sbi, int wait)
 {
 	int err;
 	struct super_block *sb = sbi->sb;
@@ -839,12 +839,12 @@ void ntfs_update_mftmirr(struct ntfs_sb_info *sbi, int wait)
 	u32 bytes;
 
 	if (!sb)
-		return;
+		return -EINVAL;
 
 	blocksize = sb->s_blocksize;
 
 	if (!(sbi->flags & NTFS_FLAGS_MFTMIRR))
-		return;
+		return 0;
 
 	err = 0;
 	bytes = sbi->mft.recs_mirr << sbi->record_bits;
@@ -855,13 +855,16 @@ void ntfs_update_mftmirr(struct ntfs_sb_info *sbi, int wait)
 		struct buffer_head *bh1, *bh2;
 
 		bh1 = sb_bread(sb, block1++);
-		if (!bh1)
-			return;
+		if (!bh1) {
+			err = -EIO;
+			goto out;
+		}
 
 		bh2 = sb_getblk(sb, block2++);
 		if (!bh2) {
 			put_bh(bh1);
-			return;
+			err = -EIO;
+			goto out;
 		}
 
 		if (buffer_locked(bh2))
@@ -881,10 +884,13 @@ void ntfs_update_mftmirr(struct ntfs_sb_info *sbi, int wait)
 
 		put_bh(bh2);
 		if (err)
-			return;
+			goto out;
 	}
 
 	sbi->flags &= ~NTFS_FLAGS_MFTMIRR;
+
+out:
+	return err;
 }
 
 /*

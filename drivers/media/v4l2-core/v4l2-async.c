@@ -705,7 +705,7 @@ __v4l2_async_notifier_add_i2c_subdev(struct v4l2_async_notifier *notifier,
 }
 EXPORT_SYMBOL_GPL(__v4l2_async_notifier_add_i2c_subdev);
 
-int __v4l2_async_register_subdev(struct v4l2_subdev *sd, struct module *module)
+int v4l2_async_register_subdev(struct v4l2_subdev *sd)
 {
 	struct v4l2_async_notifier *subdev_notifier;
 	struct v4l2_async_notifier *notifier;
@@ -718,8 +718,6 @@ int __v4l2_async_register_subdev(struct v4l2_subdev *sd, struct module *module)
 	 */
 	if (!sd->fwnode && sd->dev)
 		sd->fwnode = dev_fwnode(sd->dev);
-
-	sd->owner = module;
 
 	mutex_lock(&list_lock);
 
@@ -771,11 +769,9 @@ err_unbind:
 
 	mutex_unlock(&list_lock);
 
-	sd->owner = NULL;
-
 	return ret;
 }
-EXPORT_SYMBOL(__v4l2_async_register_subdev);
+EXPORT_SYMBOL(v4l2_async_register_subdev);
 
 void v4l2_async_unregister_subdev(struct v4l2_subdev *sd)
 {

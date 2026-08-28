@@ -174,6 +174,7 @@ select_local_address(const struct pm_nl_pernet *pernet,
 	msk_owned_by_me(msk);
 
 	rcu_read_lock();
+	__mptcp_flush_join_list(msk);
 	list_for_each_entry_rcu(entry, &pernet->local_addr_list, list) {
 		if (!(entry->flags & MPTCP_PM_ADDR_FLAG_SUBFLOW))
 			continue;
@@ -618,6 +619,7 @@ static unsigned int fill_local_addresses_vec(struct mptcp_sock *msk,
 	mptcp_local_address((struct sock_common *)msk, &mpc_addr);
 
 	rcu_read_lock();
+	__mptcp_flush_join_list(msk);
 	list_for_each_entry_rcu(entry, &pernet->local_addr_list, list) {
 		if (!(entry->flags & MPTCP_PM_ADDR_FLAG_FULLMESH))
 			continue;
@@ -656,6 +658,7 @@ static unsigned int fill_local_addresses_vec(struct mptcp_sock *msk,
 		unsigned int local_addr_max = mptcp_pm_get_local_addr_max(msk);
 
 		rcu_read_lock();
+		__mptcp_flush_join_list(msk);
 		list_for_each_entry_rcu(entry, &pernet->local_addr_list, list) {
 			if (!(entry->flags & MPTCP_PM_ADDR_FLAG_SUBFLOW))
 				continue;
@@ -793,6 +796,7 @@ void mptcp_pm_nl_addr_send_ack_avoid_list(struct mptcp_sock *msk,
 	    !mptcp_pm_should_rm_signal(msk))
 		return;
 
+	__mptcp_flush_join_list(msk);
 	mptcp_for_each_subflow(msk, subflow) {
 		if (!__mptcp_subflow_active(subflow))
 			continue;

@@ -101,14 +101,11 @@ static void qcom_minidump_cleanup(struct rproc *rproc)
 	}
 }
 
-static int qcom_add_minidump_segments(struct rproc *rproc, struct minidump_subsystem *subsystem,
-			void (*rproc_dumpfn_t)(struct rproc *rproc, struct rproc_dump_segment *segment,
-				void *dest, size_t offset, size_t size))
+static int qcom_add_minidump_segments(struct rproc *rproc, struct minidump_subsystem *subsystem)
 {
 	struct minidump_region __iomem *ptr;
 	struct minidump_region region;
 	int seg_cnt, i;
-	int ret = 0;
 	dma_addr_t da;
 	size_t size;
 	char *name;
@@ -126,31 +123,23 @@ static int qcom_add_minidump_segments(struct rproc *rproc, struct minidump_subsy
 
 	for (i = 0; i < seg_cnt; i++) {
 		memcpy_fromio(&region, ptr + i, sizeof(region));
-		if (le32_to_cpu(region.valid) == MD_REGION_VALID) {
-			name = kstrndup(region.name, MAX_REGION_NAME_LENGTH - 1, GFP_KERNEL);
+		if (region.valid == MD_REGION_VALID) {
+			name = kstrdup(region.name, GFP_KERNEL);
 			if (!name) {
-				ret = -ENOMEM;
-				break;
+				iounmap(ptr);
+				return -ENOMEM;
 			}
 			da = le64_to_cpu(region.address);
-			size = le64_to_cpu(region.size);
-			ret = rproc_coredump_add_custom_segment(rproc, da, size, rproc_dumpfn_t,
-								name);
-			if (ret) {
-				kfree(name);
-				break;
-			}
+			size = le32_to_cpu(region.size);
+			rproc_coredump_add_custom_segment(rproc, da, size, NULL, name);
 		}
 	}
 
 	iounmap(ptr);
-	return ret;
+	return 0;
 }
 
-void qcom_minidump(struct rproc *rproc, unsigned int minidump_id,
-		void (*rproc_dumpfn_t)(struct rproc *rproc,
-		struct rproc_dump_segment *segment, void *dest, size_t offset,
-		size_t size))
+void qcom_minidump(struct rproc *rproc, unsigned int minidump_id)
 {
 	int ret;
 	struct minidump_subsystem *subsystem;
@@ -180,7 +169,7 @@ void qcom_minidump(struct rproc *rproc, unsigned int minidump_id,
 		return;
 	}
 
-	ret = qcom_add_minidump_segments(rproc, subsystem, rproc_dumpfn_t);
+	ret = qcom_add_minidump_segments(rproc, subsystem);
 	if (ret) {
 		dev_err(&rproc->dev, "Failed with error: %d while adding minidump entries\n", ret);
 		goto clean_minidump;

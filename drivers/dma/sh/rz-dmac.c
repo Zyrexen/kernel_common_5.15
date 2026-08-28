@@ -773,36 +773,6 @@ static int rz_dmac_chan_probe(struct rz_dmac *dmac,
 	channel->index = index;
 	channel->mid_rid = -EINVAL;
 
-	/* Set io base address for each channel */
-	if (index < 8) {
-		channel->ch_base = dmac->base + CHANNEL_0_7_OFFSET +
-			EACH_CHANNEL_OFFSET * index;
-		channel->ch_cmn_base = dmac->base + CHANNEL_0_7_COMMON_BASE;
-	} else {
-		channel->ch_base = dmac->base + CHANNEL_8_15_OFFSET +
-			EACH_CHANNEL_OFFSET * (index - 8);
-		channel->ch_cmn_base = dmac->base + CHANNEL_8_15_COMMON_BASE;
-	}
-
-	/* Allocate descriptors */
-	lmdesc = dmam_alloc_coherent(&pdev->dev,
-				     sizeof(struct rz_lmdesc) * DMAC_NR_LMDESC,
-				     &channel->lmdesc.base_dma, GFP_KERNEL);
-	if (!lmdesc) {
-		dev_err(&pdev->dev, "Can't allocate memory (lmdesc)\n");
-		return -ENOMEM;
-	}
-	rz_lmdesc_setup(channel, lmdesc);
-
-	/* Initialize register for each channel */
-	rz_dmac_ch_writel(channel, CHCTRL_DEFAULT, CHCTRL, 1);
-
-	channel->vc.desc_free = rz_dmac_virt_desc_free;
-	vchan_init(&channel->vc, &dmac->engine);
-	INIT_LIST_HEAD(&channel->ld_queue);
-	INIT_LIST_HEAD(&channel->ld_free);
-	INIT_LIST_HEAD(&channel->ld_active);
-
 	/* Request the channel interrupt. */
 	sprintf(pdev_irqname, "ch%u", index);
 	channel->irq = platform_get_irq_byname(pdev, pdev_irqname);
@@ -818,11 +788,43 @@ static int rz_dmac_chan_probe(struct rz_dmac *dmac,
 					rz_dmac_irq_handler,
 					rz_dmac_irq_handler_thread, 0,
 					irqname, channel);
-	if (ret)
+	if (ret) {
 		dev_err(dmac->dev, "failed to request IRQ %u (%d)\n",
 			channel->irq, ret);
+		return ret;
+	}
 
-	return ret;
+	/* Set io base address for each channel */
+	if (index < 8) {
+		channel->ch_base = dmac->base + CHANNEL_0_7_OFFSET +
+			EACH_CHANNEL_OFFSET * index;
+		channel->ch_cmn_base = dmac->base + CHANNEL_0_7_COMMON_BASE;
+	} else {
+		channel->ch_base = dmac->base + CHANNEL_8_15_OFFSET +
+			EACH_CHANNEL_OFFSET * (index - 8);
+		channel->ch_cmn_base = dmac->base + CHANNEL_8_15_COMMON_BASE;
+	}
+
+	/* Allocate descriptors */
+	lmdesc = dma_alloc_coherent(&pdev->dev,
+				    sizeof(struct rz_lmdesc) * DMAC_NR_LMDESC,
+				    &channel->lmdesc.base_dma, GFP_KERNEL);
+	if (!lmdesc) {
+		dev_err(&pdev->dev, "Can't allocate memory (lmdesc)\n");
+		return -ENOMEM;
+	}
+	rz_lmdesc_setup(channel, lmdesc);
+
+	/* Initialize register for each channel */
+	rz_dmac_ch_writel(channel, CHCTRL_DEFAULT, CHCTRL, 1);
+
+	channel->vc.desc_free = rz_dmac_virt_desc_free;
+	vchan_init(&channel->vc, &dmac->engine);
+	INIT_LIST_HEAD(&channel->ld_queue);
+	INIT_LIST_HEAD(&channel->ld_free);
+	INIT_LIST_HEAD(&channel->ld_active);
+
+	return 0;
 }
 
 static int rz_dmac_parse_of(struct device *dev, struct rz_dmac *dmac)
@@ -849,6 +851,7 @@ static int rz_dmac_probe(struct platform_device *pdev)
 	const char *irqname = "error";
 	struct dma_device *engine;
 	struct rz_dmac *dmac;
+	int channel_num;
 	unsigned int i;
 	int ret;
 	int irq;
@@ -878,6 +881,19 @@ static int rz_dmac_probe(struct platform_device *pdev)
 	if (IS_ERR(dmac->ext_base))
 		return PTR_ERR(dmac->ext_base);
 
+	/* Register interrupt handler for error */
+	irq = platform_get_irq_byname(pdev, irqname);
+	if (irq < 0)
+		return irq;
+
+	ret = devm_request_irq(&pdev->dev, irq, rz_dmac_irq_handler, 0,
+			       irqname, NULL);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to request IRQ %u (%d)\n",
+			irq, ret);
+		return ret;
+	}
+
 	/* Initialize the channels. */
 	INIT_LIST_HEAD(&dmac->engine.channels);
 
@@ -885,21 +901,6 @@ static int rz_dmac_probe(struct platform_device *pdev)
 		ret = rz_dmac_chan_probe(dmac, &dmac->channels[i], i);
 		if (ret < 0)
 			goto err;
-	}
-
-	/* Register interrupt handler for error */
-	irq = platform_get_irq_byname(pdev, irqname);
-	if (irq < 0) {
-		ret = irq;
-		goto err;
-	}
-
-	ret = devm_request_irq(&pdev->dev, irq, rz_dmac_irq_handler, 0,
-			       irqname, NULL);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to request IRQ %u (%d)\n",
-			irq, ret);
-		goto err;
 	}
 
 	/* Register the DMAC as a DMA provider for DT. */
@@ -939,13 +940,32 @@ static int rz_dmac_probe(struct platform_device *pdev)
 dma_register_err:
 	of_dma_controller_free(pdev->dev.of_node);
 err:
+	channel_num = i ? i - 1 : 0;
+	for (i = 0; i < channel_num; i++) {
+		struct rz_dmac_chan *channel = &dmac->channels[i];
+
+		dma_free_coherent(&pdev->dev,
+				  sizeof(struct rz_lmdesc) * DMAC_NR_LMDESC,
+				  channel->lmdesc.base,
+				  channel->lmdesc.base_dma);
+	}
+
 	return ret;
 }
 
 static int rz_dmac_remove(struct platform_device *pdev)
 {
 	struct rz_dmac *dmac = platform_get_drvdata(pdev);
+	unsigned int i;
 
+	for (i = 0; i < dmac->n_channels; i++) {
+		struct rz_dmac_chan *channel = &dmac->channels[i];
+
+		dma_free_coherent(&pdev->dev,
+				  sizeof(struct rz_lmdesc) * DMAC_NR_LMDESC,
+				  channel->lmdesc.base,
+				  channel->lmdesc.base_dma);
+	}
 	of_dma_controller_free(pdev->dev.of_node);
 	dma_async_device_unregister(&dmac->engine);
 

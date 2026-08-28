@@ -89,9 +89,6 @@ intel_hdcp_required_content_stream(struct intel_digital_port *dig_port)
 		if (!enforce_type0 && !intel_streams_type1_capable(connector))
 			enforce_type0 = true;
 
-		if (drm_WARN_ON(&i915->drm, data->k >= INTEL_NUM_PIPES(i915)))
-			return -EINVAL;
-
 		data->streams[data->k].stream_id = intel_conn_to_vcpi(connector);
 		data->k++;
 
@@ -101,7 +98,7 @@ intel_hdcp_required_content_stream(struct intel_digital_port *dig_port)
 	}
 	drm_connector_list_iter_end(&conn_iter);
 
-	if (drm_WARN_ON(&i915->drm, !data->k))
+	if (drm_WARN_ON(&i915->drm, data->k > INTEL_NUM_PIPES(i915) || data->k == 0))
 		return -EINVAL;
 
 	/*
@@ -1645,10 +1642,9 @@ int hdcp2_authenticate_repeater_topology(struct intel_connector *connector)
 		return -EINVAL;
 	}
 
-	if (hdcp->hdcp2_encrypted && seq_num_v <= hdcp->seq_num_v) {
-		/* Reauthenticate on Seq_num_v repeat or rollover */
-		drm_dbg_kms(&dev_priv->drm, "Seq_num_v %s\n",
-			    seq_num_v == hdcp->seq_num_v ? "repeat" : "rollover");
+	if (seq_num_v < hdcp->seq_num_v) {
+		/* Roll over of the seq_num_v from repeater. Reauthenticate. */
+		drm_dbg_kms(&dev_priv->drm, "Seq_num_v roll over.\n");
 		return -EINVAL;
 	}
 
