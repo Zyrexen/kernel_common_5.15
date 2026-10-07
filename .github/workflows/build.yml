@@ -1,0 +1,100 @@
+name: Build Kernel
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: android13-5.15-rebased
+          fetch-depth: 1
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            bc \
+            bison \
+            build-essential \
+            ccache \
+            flex \
+            git \
+            libelf-dev \
+            libssl-dev \
+            lld \
+            pahole \
+            perl \
+            python3 \
+            rsync \
+            unzip \
+            wget \
+            zip
+
+      - name: Download Android Clang
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/toolchain"
+          cd "$GITHUB_WORKSPACE/toolchain"
+
+          wget -q \
+            https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android13-release/clang-r450784d.tar.gz \
+            -O clang.tar.gz
+
+          mkdir clang
+          tar -xf clang.tar.gz -C clang
+
+      - name: Configure kernel
+        run: |
+          export PATH="$GITHUB_WORKSPACE/toolchain/clang/bin:$PATH"
+
+          make O=out ARCH=arm64 LLVM=1 \
+            gki_defconfig
+
+      - name: Build kernel
+        run: |
+          export PATH="$GITHUB_WORKSPACE/toolchain/clang/bin:$PATH"
+
+          make -j"$(nproc)" \
+            O=out \
+            ARCH=arm64 \
+            LLVM=1 \
+            CC=clang \
+            LD=ld.lld \
+            AR=llvm-ar \
+            NM=llvm-nm \
+            OBJCOPY=llvm-objcopy \
+            OBJDUMP=llvm-objdump \
+            STRIP=llvm-strip \
+            Image \
+            Image.gz \
+            Image.lz4 \
+            modules
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p dist
+
+          cp out/arch/arm64/boot/Image dist/ 2>/dev/null || true
+          cp out/arch/arm64/boot/Image.gz dist/ 2>/dev/null || true
+          cp out/arch/arm64/boot/Image.lz4 dist/ 2>/dev/null || true
+          cp out/vmlinux dist/ 2>/dev/null || true
+          cp out/System.map dist/ 2>/dev/null || true
+          cp out/.config dist/config 2>/dev/null || true
+
+          tar -czf kernel-modules.tar.gz \
+            -C out \
+            "$(find out -type d -path '*/lib/modules' -print -quit | sed 's#^out/##')" \
+            2>/dev/null || true
+
+      - name: Upload kernel
+        uses: actions/upload-artifact@v4
+        with:
+          name: Redmi-A5-kernel-test
+          path: |
+            dist/
+            kernel-modules.tar.gz
+          if-no-files-found: warn
