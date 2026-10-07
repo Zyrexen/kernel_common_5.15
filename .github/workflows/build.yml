@@ -14,9 +14,12 @@ jobs:
           ref: android13-5.15-rebased
           fetch-depth: 1
 
-      - name: Install dependencies
+     - name: Install dependencies
         run: |
+          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources
+
           sudo apt-get update
+
           sudo apt-get install -y \
             bc \
             bison \
