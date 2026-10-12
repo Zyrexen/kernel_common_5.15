@@ -14,6 +14,15 @@ jobs:
           ref: android13-5.15-rebased
           fetch-depth: 1
 
+      - name: Maximize build space & setup swap
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 8192
+          swap-size-mb: 4096
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-codeql: 'true'
+
       - name: Fix Ubuntu mirrors
         run: |
           sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources
@@ -61,7 +70,9 @@ jobs:
         run: |
           export PATH="$GITHUB_WORKSPACE/toolchain/clang/bin:$PATH"
 
-          make -j2 \
+          # Выжимаем максимум из доступных потоков раннера (обычно 2 ядра / 4 потока)
+          nproc
+          make -j$(nproc) \
             O=out \
             ARCH=arm64 \
             LLVM=1 \
