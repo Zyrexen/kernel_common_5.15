@@ -14,18 +14,23 @@ jobs:
           ref: android13-5.15-rebased
           fetch-depth: 1
 
-      - name: Maximize build space & setup swap
-        uses: easimon/maximize-build-space@master
-        with:
-          root-reserve-mb: 8192
-          swap-size-mb: 4096
-          remove-dotnet: 'true'
-          remove-android: 'true'
-          remove-codeql: 'true'
-
-      - name: Fix Ubuntu mirrors
+      - name: Free up disk space
         run: |
-          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources
+          echo "=== Free disk space before cleanup ==="
+          df -h
+
+          # Удаляем тяжелый хлам, который жрёт место на стандартных раннерах
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/gh
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/hostedtoolcache
+          
+          # Чистим пакетный кеш
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
+
+          echo "=== Free disk space after cleanup ==="
+          df -h
 
       - name: Install dependencies
         run: |
@@ -70,7 +75,6 @@ jobs:
         run: |
           export PATH="$GITHUB_WORKSPACE/toolchain/clang/bin:$PATH"
 
-          # Выжимаем максимум из доступных потоков раннера (обычно 2 ядра / 4 потока)
           nproc
           make -j$(nproc) \
             O=out \
